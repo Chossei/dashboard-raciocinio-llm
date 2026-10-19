@@ -11,7 +11,7 @@ import streamlit as st
 ORDEM_DIGITOS = [f"{i} dígitos" for i in range(2, 11)]
 ORDEM_DIGITOS_NUM = [str(i) for i in range(2, 11)]
 
-# Ordem estrita estabelecida pelo usuário
+# Ordem estrita estabelecida pelo usuário (12 modelos no total)
 MODELOS_GEMINI = [
     "gemini-2.5-flash",
     "gemini-2.5-pro",
@@ -22,10 +22,12 @@ MODELOS_GEMINI = [
     "gemini-3.5-flash",
     "gemini-3.6-flash",
     "gemini-3.7-flash",
-    "gemini-3.8-flash"
+    "gemini-3.8-flash",
+    "gemini-3.8-flash-mid",
+    "gemini-3.8-flash-high"
 ]
 
-# Escala progressiva de azuis: do mais claro (2.5 flash) ao mais escuro (3.8 flash)
+# Escala progressiva de azuis: do mais claro (2.5 flash) aos tons oceano/cerúleo e meia-noite (3.8 flash)
 CORES_MODELOS_AZUL = {
     "gemini-2.5-flash": "#bfdbfe",       # Azul muito claro (Sky/Blue 200)
     "gemini-2.5-pro": "#93c5fd",         # Azul claro (Blue 300)
@@ -36,7 +38,9 @@ CORES_MODELOS_AZUL = {
     "gemini-3.5-flash": "#1e40af",       # Azul cobalto escuro (Blue 800)
     "gemini-3.6-flash": "#1e3a8a",       # Azul marinho (Blue 900)
     "gemini-3.7-flash": "#172554",       # Azul profundo (Blue 950)
-    "gemini-3.8-flash": "#0b132b"        # Azul meia-noite ultra escuro
+    "gemini-3.8-flash": "#0b132b",       # Azul meia-noite ultra escuro (Reasoning: low)
+    "gemini-3.8-flash-mid": "#0284c7",   # Azul oceano (Reasoning: medium)
+    "gemini-3.8-flash-high": "#0369a1"   # Azul cerúleo escuro (Reasoning: high)
 }
 
 # Cor azul padrão unificada para gráficos simples de barra
@@ -62,6 +66,8 @@ REASONING_MODELOS = {
     "gemini-3.6-flash": "Reasoning: minimal",
     "gemini-3.7-flash": "Reasoning: low",
     "gemini-3.8-flash": "Reasoning: low",
+    "gemini-3.8-flash-mid": "Reasoning: medium",
+    "gemini-3.8-flash-high": "Reasoning: high"
 }
 
 # Rótulos padronizados com indicação de reasoning entre parênteses
@@ -190,17 +196,20 @@ def normalizar_dataframe(df, tipo):
         # Fatores de ajuste baseados nos valores faturados reais:
         # Multiplicacao Inteira: Vertex AI batch/zero thinking real = ~$0.8057 USD
         # Soma: OpenRouter Batch API com 50% de desconto real = ~$4.0772 USD
-        # Combinadas: OpenRouter Batch API com 50% de desconto real = ~$8.6279 USD
+        # Combinadas: OpenRouter Batch API com 50% de desconto real = ~$8.6279 USD (base) + $1.3314 (mid) + $1.9467 (high)
         # Decimal: OpenRouter inferência com tier flex real = ~$10.7592 USD
-        # Soma consolidada exata = $24.27 USD (idêntico ao indicador oficial)
         fatores_operacao = {
             "multiplicacao": 0.805703 / 3.787578,
             "soma": 4.077187 / 7.443801,
-            "combinadas": 8.627928 / 15.752397,
             "decimal": 10.759182 / 14.065440,
         }
-        fator = fatores_operacao.get(tipo, 1.0)
-        df["custo_total"] = df["custo_total"] * fator
+        if tipo == "combinadas":
+            # As variações mid e high já estão calculadas com o valor faturado exato da Batch API
+            mask_orig = ~df["Nome_do_modelo"].isin(["gemini-3.8-flash-mid", "gemini-3.8-flash-high"])
+            df.loc[mask_orig, "custo_total"] = df.loc[mask_orig, "custo_total"] * (8.627928 / 15.752397)
+        else:
+            fator = fatores_operacao.get(tipo, 1.0)
+            df["custo_total"] = df["custo_total"] * fator
     else:
         df["custo_total"] = 0.0
 
